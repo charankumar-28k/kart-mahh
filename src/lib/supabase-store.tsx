@@ -3,7 +3,7 @@ import {
   type ReactNode,
 } from "react";
 import * as api from "./api";
-import type { Database, UserRole } from "./database.types";
+import type { Database } from "./database.types";
 import { supabase } from "./supabase";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -98,9 +98,9 @@ export function SupabaseStoreProvider({ children }: { children: ReactNode }) {
       const { data: authUser } = await supabase.auth.getUser();
       const email = authUser.user?.email ?? "";
       const name = authUser.user?.user_metadata?.name ?? email.split("@")[0] ?? "User";
-      await (supabase
+      await (supabase as any)
         .from("profiles")
-        .upsert({ id: userId, email, name, role: "user" as UserRole }, { onConflict: "id", ignoreDuplicates: true }) as any);
+        .upsert({ id: userId, email, name, role: "user" }, { onConflict: "id", ignoreDuplicates: true });
 
       // 2. Load profile
       const profile = await api.getProfile(userId);
@@ -174,19 +174,22 @@ export function SupabaseStoreProvider({ children }: { children: ReactNode }) {
 
   // ── Realtime: instant push on top of polling ────────────────────────────────
   useEffect(() => {
+    const u = userRef.current;
+    if (!u) return; // don't subscribe if not logged in
+
     const channel = supabase
       .channel("db-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () => {
-        const u = userRef.current;
-        if (u) fetchOrders(u);
+        const cur = userRef.current;
+        if (cur) fetchOrders(cur);
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "order_history" }, () => {
-        const u = userRef.current;
-        if (u) fetchOrders(u);
+        const cur = userRef.current;
+        if (cur) fetchOrders(cur);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications" }, (payload) => {
-        const u = userRef.current;
-        if (u && (payload.new as any)?.user_id === u.id) {
+        const cur = userRef.current;
+        if (cur && (payload.new as any)?.user_id === cur.id) {
           setNotifications((prev) => [payload.new as Notification, ...prev]);
         }
       })
@@ -196,7 +199,7 @@ export function SupabaseStoreProvider({ children }: { children: ReactNode }) {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [fetchOrders]);
+  }, [fetchOrders, user]); // re-subscribe when user changes
 
   // ── Auth ───────────────────────────────────────────────────────────────────
   const signIn = useCallback(async (email: string, password: string) => {
@@ -256,11 +259,12 @@ export function SupabaseStoreProvider({ children }: { children: ReactNode }) {
 
   const upsertProduct = useCallback(async (p: Parameters<typeof api.upsertProduct>[0]) => {
     const saved = await api.upsertProduct(p);
+    const savedAny = saved as any;
     setProducts((prev) => {
-      const exists = prev.some((x) => (x as any).id === saved.id);
+      const exists = prev.some((x) => (x as any).id === savedAny.id);
       return exists
-        ? prev.map((x) => ((x as any).id === saved.id ? { ...(x as any), ...(saved as any) } : x))
-        : [saved as unknown as Product, ...prev];
+        ? prev.map((x) => ((x as any).id === savedAny.id ? { ...(x as any), ...savedAny } : x))
+        : [savedAny, ...prev];
     });
   }, []);
 

@@ -1,16 +1,17 @@
 /**
  * api.ts — Full Supabase backend API for ClassiAds
- * Covers every page: auth, products, orders, profile, addresses,
- * payments, reviews, wishlist, notifications, delivery, admin.
  */
 import { supabase } from "./supabase";
 import type { OrderStatus, NotificationType } from "./database.types";
+
+// Typed shorthand — casts the entire client to any so TS never infers never[]
+// on chained insert/update/upsert calls with complex union types.
+const db = supabase as any;
 
 // ─────────────────────────────────────────────────────────────
 // AUTH
 // ─────────────────────────────────────────────────────────────
 
-/** Sign up a new customer */
 export async function signUp(name: string, email: string, password: string) {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -21,26 +22,22 @@ export async function signUp(name: string, email: string, password: string) {
   return data.user;
 }
 
-/** Sign in any user (customer, delivery, admin) */
 export async function signIn(email: string, password: string) {
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) throw error;
   return data.user;
 }
 
-/** Sign out */
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
 
-/** Get current authenticated user session */
 export async function getSession() {
   const { data } = await supabase.auth.getSession();
   return data.session;
 }
 
-/** Listen to auth state changes */
 export function onAuthStateChange(cb: Parameters<typeof supabase.auth.onAuthStateChange>[0]) {
   return supabase.auth.onAuthStateChange(cb);
 }
@@ -49,61 +46,47 @@ export function onAuthStateChange(cb: Parameters<typeof supabase.auth.onAuthStat
 // PROFILE
 // ─────────────────────────────────────────────────────────────
 
-/** Fetch own profile */
 export async function getProfile(userId: string) {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", userId)
-    .single();
+  const { data, error } = await db.from("profiles").select("*").eq("id", userId).single();
   if (error) throw error;
-  return data;
+  return data as {
+    id: string; email: string; name: string; role: string;
+    phone: string | null; alt_phone: string | null; address: string | null;
+    house_no: string | null; street: string | null; city: string | null;
+    state: string | null; country: string | null; zip: string | null;
+    location: string | null; avatar: string | null; wishlist: string[];
+    created_at: string; updated_at: string;
+  };
 }
 
-/** Update own profile */
 export async function updateProfile(userId: string, patch: {
   name?: string; phone?: string; alt_phone?: string;
   house_no?: string; street?: string; city?: string;
   state?: string; country?: string; zip?: string;
   address?: string; location?: string; avatar?: string;
 }) {
-  const { data, error } = await supabase
-    .from("profiles")
-    .update(patch)
-    .eq("id", userId)
-    .select()
-    .single();
+  const { data, error } = await db.from("profiles").update(patch).eq("id", userId).select().single();
   if (error) throw error;
   return data;
 }
 
-/** Change password via Supabase Auth */
 export async function changePassword(newPassword: string) {
   const { error } = await supabase.auth.updateUser({ password: newPassword });
   if (error) throw error;
 }
 
-/** Get all profiles — admin only */
 export async function getAllProfiles() {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .order("created_at", { ascending: false });
+  const { data, error } = await db.from("profiles").select("*").order("created_at", { ascending: false });
   if (error) throw error;
-  return data;
+  return data as any[];
 }
 
-/** Get all delivery agents — admin only */
 export async function getDeliveryAgents() {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("role", "delivery");
+  const { data, error } = await db.from("profiles").select("*").eq("role", "delivery");
   if (error) throw error;
-  return data;
+  return data as any[];
 }
 
-/** Create a delivery agent — signs them up then sets role to delivery */
 export async function createDeliveryAgent(name: string, email: string, password: string, phone: string) {
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -112,8 +95,7 @@ export async function createDeliveryAgent(name: string, email: string, password:
   });
   if (error) throw error;
   if (!data.user) throw new Error("Failed to create agent account.");
-  // Update the profile role to delivery (trigger creates it as 'user' by default)
-  const { error: profileErr } = await supabase
+  const { error: profileErr } = await db
     .from("profiles")
     .update({ role: "delivery", phone })
     .eq("id", data.user.id);
@@ -121,9 +103,8 @@ export async function createDeliveryAgent(name: string, email: string, password:
   return data.user.id;
 }
 
-/** Delete a delivery agent — admin only */
 export async function deleteDeliveryAgent(agentId: string) {
-  const { error } = await supabase.from("profiles").delete().eq("id", agentId).eq("role", "delivery");
+  const { error } = await db.from("profiles").delete().eq("id", agentId).eq("role", "delivery");
   if (error) throw error;
 }
 
@@ -132,29 +113,23 @@ export async function deleteDeliveryAgent(agentId: string) {
 // ─────────────────────────────────────────────────────────────
 
 export async function getSavedAddresses(userId: string) {
-  const { data, error } = await supabase
-    .from("saved_addresses")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true });
+  const { data, error } = await db
+    .from("saved_addresses").select("*").eq("user_id", userId).order("created_at", { ascending: true });
   if (error) throw error;
-  return data;
+  return data as any[];
 }
 
 export async function addSavedAddress(userId: string, addr: {
   label: string; name: string; phone: string; line1: string; city: string; zip: string;
 }) {
-  const { data, error } = await supabase
-    .from("saved_addresses")
-    .insert({ ...addr, user_id: userId })
-    .select()
-    .single();
+  const { data, error } = await db
+    .from("saved_addresses").insert({ ...addr, user_id: userId }).select().single();
   if (error) throw error;
   return data;
 }
 
 export async function deleteSavedAddress(id: string) {
-  const { error } = await supabase.from("saved_addresses").delete().eq("id", id);
+  const { error } = await db.from("saved_addresses").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -163,29 +138,23 @@ export async function deleteSavedAddress(id: string) {
 // ─────────────────────────────────────────────────────────────
 
 export async function getPaymentMethods(userId: string) {
-  const { data, error } = await supabase
-    .from("payment_methods")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: true });
+  const { data, error } = await db
+    .from("payment_methods").select("*").eq("user_id", userId).order("created_at", { ascending: true });
   if (error) throw error;
-  return data;
+  return data as any[];
 }
 
 export async function addPaymentMethod(userId: string, pm: {
   brand: string; last4: string; holder: string; expiry: string;
 }) {
-  const { data, error } = await supabase
-    .from("payment_methods")
-    .insert({ ...pm, user_id: userId })
-    .select()
-    .single();
+  const { data, error } = await db
+    .from("payment_methods").insert({ ...pm, user_id: userId }).select().single();
   if (error) throw error;
   return data;
 }
 
 export async function deletePaymentMethod(id: string) {
-  const { error } = await supabase.from("payment_methods").delete().eq("id", id);
+  const { error } = await db.from("payment_methods").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -197,7 +166,7 @@ export async function getProducts(filters?: {
   category?: string; subcategory?: string; search?: string;
   tags?: string[]; sort?: "price_asc" | "price_desc" | "rating" | "newest";
 }) {
-  let query = supabase.from("products").select("*, reviews(*)");
+  let query = db.from("products").select("*, reviews(*)");
 
   if (filters?.category) query = query.eq("category", filters.category);
   if (filters?.subcategory) query = query.eq("subcategory", filters.subcategory);
@@ -211,15 +180,11 @@ export async function getProducts(filters?: {
 
   const { data, error } = await query;
   if (error) throw error;
-  return data;
+  return (data ?? []) as any[];
 }
 
 export async function getProductById(id: string) {
-  const { data, error } = await supabase
-    .from("products")
-    .select("*, reviews(*)")
-    .eq("id", id)
-    .single();
+  const { data, error } = await db.from("products").select("*, reviews(*)").eq("id", id).single();
   if (error) throw error;
   return data;
 }
@@ -229,30 +194,22 @@ export async function upsertProduct(product: {
   image: string; category: string; subcategory: string; rating: number;
   description: string; tags: string[]; stock: number; location: string; seller_id: string;
 }) {
-  const { data, error } = await supabase
-    .from("products")
-    .upsert(product)
-    .select()
-    .single();
+  const { data, error } = await db.from("products").upsert(product).select().single();
   if (error) throw error;
   return data;
 }
 
 export async function deleteProduct(id: string) {
-  const { error } = await supabase.from("products").delete().eq("id", id);
+  const { error } = await db.from("products").delete().eq("id", id);
   if (error) throw error;
 }
 
 export async function updateProductStock(id: string, delta: number) {
-  const { data: product, error: fetchErr } = await supabase
-    .from("products")
-    .select("stock")
-    .eq("id", id)
-    .single();
+  const { data: product, error: fetchErr } = await db.from("products").select("stock").eq("id", id).single();
   if (fetchErr) throw fetchErr;
-  const { error } = await supabase
+  const { error } = await db
     .from("products")
-    .update({ stock: Math.max(0, (product?.stock ?? 0) + delta) })
+    .update({ stock: Math.max(0, ((product as any)?.stock ?? 0) + delta) })
     .eq("id", id);
   if (error) throw error;
 }
@@ -262,21 +219,17 @@ export async function updateProductStock(id: string, delta: number) {
 // ─────────────────────────────────────────────────────────────
 
 export async function getReviews(productId: string) {
-  const { data, error } = await supabase
-    .from("reviews")
-    .select("*")
-    .eq("product_id", productId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await db
+    .from("reviews").select("*").eq("product_id", productId).order("created_at", { ascending: false });
   if (error) throw error;
-  return data;
+  return data as any[];
 }
 
 export async function addReview(productId: string, userId: string, userName: string, rating: number, comment: string) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("reviews")
     .insert({ product_id: productId, user_id: userId, user_name: userName, rating, comment })
-    .select()
-    .single();
+    .select().single();
   if (error) throw error;
   return data;
 }
@@ -286,13 +239,9 @@ export async function addReview(productId: string, userId: string, userName: str
 // ─────────────────────────────────────────────────────────────
 
 export async function getWishlist(userId: string): Promise<string[]> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("wishlist")
-    .eq("id", userId)
-    .single();
+  const { data, error } = await db.from("profiles").select("wishlist").eq("id", userId).single();
   if (error) throw error;
-  return data.wishlist ?? [];
+  return (data as any).wishlist ?? [];
 }
 
 export async function toggleWishlist(userId: string, productId: string) {
@@ -300,10 +249,7 @@ export async function toggleWishlist(userId: string, productId: string) {
   const updated = current.includes(productId)
     ? current.filter((id) => id !== productId)
     : [...current, productId];
-  const { error } = await supabase
-    .from("profiles")
-    .update({ wishlist: updated })
-    .eq("id", userId);
+  const { error } = await db.from("profiles").update({ wishlist: updated }).eq("id", userId);
   if (error) throw error;
   return updated;
 }
@@ -322,8 +268,7 @@ export async function placeOrder(order: {
   shipmentId: string;
   transactionRef: string;
 }) {
-  // 1. Insert order
-  const { error: orderErr } = await supabase.from("orders").insert({
+  const { error: orderErr } = await db.from("orders").insert({
     id: order.id,
     user_id: order.userId,
     subtotal: order.subtotal,
@@ -343,8 +288,7 @@ export async function placeOrder(order: {
   });
   if (orderErr) throw orderErr;
 
-  // 2. Insert order items
-  const { error: itemsErr } = await supabase.from("order_items").insert(
+  const { error: itemsErr } = await db.from("order_items").insert(
     order.items.map((i) => ({
       order_id: order.id,
       product_id: i.productId,
@@ -356,53 +300,51 @@ export async function placeOrder(order: {
   );
   if (itemsErr) throw itemsErr;
 
-  // 3. Insert initial history entry
-  const { error: histErr } = await supabase.from("order_history").insert({
+  const { error: histErr } = await db.from("order_history").insert({
     order_id: order.id,
     status: "placed",
     at: new Date().toISOString(),
   });
   if (histErr) throw histErr;
 
-  // 4. Insert notification
-  const { error: notifErr } = await (supabase.from("notifications").insert({
+  const { error: notifErr } = await db.from("notifications").insert({
     user_id: order.userId,
     message: `Order ${order.id} placed successfully!`,
     type: "order_placed",
     order_id: order.id,
-  } as any) as any);
+  });
   if (notifErr) throw notifErr;
 
   return order.id;
 }
 
 export async function getOrders(userId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("orders")
     .select("*, order_items(*), order_history(*), shipments(*)")
     .eq("user_id", userId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data;
+  return (data ?? []) as any[];
 }
 
 export async function getOrderById(orderId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("orders")
     .select("*, order_items(*), order_history(*), shipments(*)")
     .eq("id", orderId)
     .single();
   if (error) throw error;
-  return data;
+  return data as any;
 }
 
 export async function getAllOrders() {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("orders")
     .select("*, order_items(*), order_history(*), shipments(*)")
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as any[];
 }
 
 export async function advanceOrder(
@@ -411,33 +353,25 @@ export async function advanceOrder(
   deliveryUserId?: string,
   note?: string
 ) {
-  // Update order status
-  const updatePayload: { status: OrderStatus; assigned_to?: string } = { status };
+  const updatePayload: Record<string, unknown> = { status };
   if (deliveryUserId) updatePayload.assigned_to = deliveryUserId;
-  const { error: orderErr } = await (supabase
-    .from("orders")
-    .update(updatePayload as any)
-    .eq("id", orderId) as any);
+
+  const { error: orderErr } = await db.from("orders").update(updatePayload).eq("id", orderId);
   if (orderErr) throw orderErr;
 
-  // Append history
-  const { error: histErr } = await (supabase.from("order_history").insert({
+  const { error: histErr } = await db.from("order_history").insert({
     order_id: orderId,
     status,
     at: new Date().toISOString(),
     by: deliveryUserId ?? null,
     note: note ?? null,
-  } as any) as any);
+  });
   if (histErr) throw histErr;
 
-  // Update shipment status
-  const { error: shipErr } = await (supabase
-    .from("shipments")
-    .update({ shipment_status: status } as any)
-    .eq("order_id", orderId) as any);
+  const { error: shipErr } = await db
+    .from("shipments").update({ shipment_status: status }).eq("order_id", orderId);
   if (shipErr) throw shipErr;
 
-  // Notification for milestones
   const notifTypes: Partial<Record<OrderStatus, NotificationType>> = {
     shipped: "shipped",
     out_for_delivery: "out_for_delivery",
@@ -445,21 +379,19 @@ export async function advanceOrder(
   };
   const notifType = notifTypes[status];
   if (notifType) {
-    const msgMap: Record<NotificationType, string> = {
-      order_placed: "",
-      payment_success: "",
+    const msgMap: Record<string, string> = {
       shipped: `Your order ${orderId} has been shipped!`,
       out_for_delivery: `Your order ${orderId} is out for delivery!`,
       delivered: `Your order ${orderId} has been delivered!`,
     };
-    const { data: order } = await supabase.from("orders").select("user_id").eq("id", orderId).single();
-    if (order) {
-      await (supabase.from("notifications").insert({
-        user_id: order.user_id,
-        message: msgMap[notifType],
+    const { data: ord } = await db.from("orders").select("user_id").eq("id", orderId).single();
+    if (ord) {
+      await db.from("notifications").insert({
+        user_id: (ord as any).user_id,
+        message: msgMap[notifType] ?? "",
         type: notifType,
         order_id: orderId,
-      } as any) as any);
+      });
     }
   }
 }
@@ -468,33 +400,25 @@ export async function cancelOrder(orderId: string, cancelledBy: "customer" | "ad
   await advanceOrder(orderId, "cancelled", undefined, `Cancelled by ${cancelledBy}`);
 }
 
-/** Claim an order as a delivery agent — saves agent ID to DB */
 export async function claimOrder(orderId: string, agentId: string) {
-  // 1. Assign agent + set status to packed
-  const { error: orderErr } = await (supabase
+  const { error: orderErr } = await db
     .from("orders")
-    .update({ assigned_to: agentId, status: "packed" } as any)
+    .update({ assigned_to: agentId, status: "packed" })
     .eq("id", orderId)
-    .is("assigned_to", null) as any);
+    .is("assigned_to", null);
   if (orderErr) throw orderErr;
 
-  // 2. Record in order_history
-  const { error: histErr } = await (supabase.from("order_history").insert({
+  const { error: histErr } = await db.from("order_history").insert({
     order_id: orderId,
-    status: "packed" as OrderStatus,
+    status: "packed",
     at: new Date().toISOString(),
     by: agentId,
     note: "Claimed by delivery agent",
-  } as any) as any);
+  });
   if (histErr) throw histErr;
 
-  // 3. Update shipment status
-  await (supabase.from("shipments")
-    .update({ shipment_status: "packed" } as any)
-    .eq("order_id", orderId) as any);
+  await db.from("shipments").update({ shipment_status: "packed" }).eq("order_id", orderId);
 }
-
-
 
 // ─────────────────────────────────────────────────────────────
 // SHIPMENTS
@@ -507,25 +431,21 @@ export async function createShipment(shipment: {
   trackingNumber: string;
   estimatedDeliveryDate: number;
 }) {
-  const { error } = await (supabase.from("shipments").insert({
+  const { error } = await db.from("shipments").insert({
     id: shipment.id,
     order_id: shipment.orderId,
     courier_partner: shipment.courierPartner,
     tracking_number: shipment.trackingNumber,
     estimated_delivery_date: new Date(shipment.estimatedDeliveryDate).toISOString(),
     shipment_status: "placed",
-  } as any) as any);
+  });
   if (error) throw error;
 }
 
 export async function getShipment(orderId: string) {
-  const { data, error } = await supabase
-    .from("shipments")
-    .select("*")
-    .eq("order_id", orderId)
-    .single();
+  const { data, error } = await db.from("shipments").select("*").eq("order_id", orderId).single();
   if (error) return null;
-  return data;
+  return data as any;
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -533,21 +453,15 @@ export async function getShipment(orderId: string) {
 // ─────────────────────────────────────────────────────────────
 
 export async function getNotifications(userId: string) {
-  const { data, error } = await supabase
-    .from("notifications")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+  const { data, error } = await db
+    .from("notifications").select("*").eq("user_id", userId).order("created_at", { ascending: false });
   if (error) throw error;
-  return data;
+  return (data ?? []) as any[];
 }
 
 export async function markNotificationsRead(userId: string) {
-  const { error } = await (supabase
-    .from("notifications")
-    .update({ read: true } as any)
-    .eq("user_id", userId)
-    .eq("read", false) as any);
+  const { error } = await db
+    .from("notifications").update({ read: true }).eq("user_id", userId).eq("read", false);
   if (error) throw error;
 }
 
@@ -555,27 +469,25 @@ export async function markNotificationsRead(userId: string) {
 // DELIVERY
 // ─────────────────────────────────────────────────────────────
 
-/** Orders available to claim (not yet assigned, not delivered/cancelled) */
 export async function getAvailableOrders() {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("orders")
     .select("*, order_items(*)")
     .is("assigned_to", null)
     .not("status", "in", "(delivered,cancelled)")
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as any[];
 }
 
-/** Orders assigned to a specific delivery agent */
 export async function getMyDeliveries(agentId: string) {
-  const { data, error } = await supabase
+  const { data, error } = await db
     .from("orders")
     .select("*, order_items(*), order_history(*)")
     .eq("assigned_to", agentId)
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as any[];
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -584,23 +496,26 @@ export async function getMyDeliveries(agentId: string) {
 
 export async function getAdminStats() {
   const [products, orders, users] = await Promise.all([
-    supabase.from("products").select("id", { count: "exact", head: true }),
-    supabase.from("orders").select("id, total, status") as unknown as Promise<{ data: { id: string; total: number; status: OrderStatus }[] | null; error: unknown }>,
-    supabase.from("profiles").select("id, role") as unknown as Promise<{ data: { id: string; role: string }[] | null; error: unknown }>,
+    db.from("products").select("id", { count: "exact", head: true }),
+    db.from("orders").select("id, total, status"),
+    db.from("profiles").select("id, role"),
   ]);
 
-  const totalRevenue = (orders.data ?? [])
+  const orderData = (orders.data ?? []) as { id: string; total: number; status: string }[];
+  const userData = (users.data ?? []) as { id: string; role: string }[];
+
+  const totalRevenue = orderData
     .filter((o) => o.status !== "cancelled")
     .reduce((sum, o) => sum + Number(o.total), 0);
 
-  const activeOrders = (orders.data ?? [])
+  const activeOrders = orderData
     .filter((o) => o.status !== "delivered" && o.status !== "cancelled").length;
 
   return {
     productCount: products.count ?? 0,
-    orderCount: orders.data?.length ?? 0,
+    orderCount: orderData.length,
     activeOrders,
     totalRevenue,
-    userCount: (users.data ?? []).filter((u) => u.role === "user").length,
+    userCount: userData.filter((u) => u.role === "user").length,
   };
 }
