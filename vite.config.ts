@@ -11,4 +11,7 @@ export default defineConfig({
     tailwindcss(),
     tsconfigPaths(),
   ],
+  server: {
+    historyApiFallback: true,
+  },
 });

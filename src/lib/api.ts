@@ -103,16 +103,22 @@ export async function getDeliveryAgents() {
   return data;
 }
 
-/** Create a delivery agent — admin only */
+/** Create a delivery agent — signs them up then sets role to delivery */
 export async function createDeliveryAgent(name: string, email: string, password: string, phone: string) {
-  const { data, error } = await supabase.rpc("create_delivery_agent", {
-    agent_name: name,
-    agent_email: email,
-    agent_password: password,
-    agent_phone: phone,
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { name, role: "delivery" } },
   });
   if (error) throw error;
-  return data as string; // returns new user UUID
+  if (!data.user) throw new Error("Failed to create agent account.");
+  // Update the profile role to delivery (trigger creates it as 'user' by default)
+  const { error: profileErr } = await supabase
+    .from("profiles")
+    .update({ role: "delivery", phone })
+    .eq("id", data.user.id);
+  if (profileErr) throw profileErr;
+  return data.user.id;
 }
 
 /** Delete a delivery agent — admin only */
@@ -237,8 +243,17 @@ export async function deleteProduct(id: string) {
   if (error) throw error;
 }
 
-export async function updateProductStock(id: string, stockDelta: number) {
-  const { error } = await supabase.rpc("adjust_product_stock", { product_id: id, delta: stockDelta });
+export async function updateProductStock(id: string, delta: number) {
+  const { data: product, error: fetchErr } = await supabase
+    .from("products")
+    .select("stock")
+    .eq("id", id)
+    .single();
+  if (fetchErr) throw fetchErr;
+  const { error } = await supabase
+    .from("products")
+    .update({ stock: Math.max(0, (product?.stock ?? 0) + delta) })
+    .eq("id", id);
   if (error) throw error;
 }
 
@@ -382,9 +397,12 @@ export async function getOrderById(orderId: string) {
 }
 
 export async function getAllOrders() {
-  const { data, error } = await supabase.rpc("get_all_orders_for_admin");
-  if (error) { console.error("getAllOrders error:", error); throw error; }
-  return (data ?? []) as any[];
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*, order_items(*), order_history(*), shipments(*)")
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
 }
 
 export async function advanceOrder(
@@ -446,13 +464,8 @@ export async function advanceOrder(
   }
 }
 
-/** Cancel an order — customer cancels their own order via RPC to bypass RLS */
 export async function cancelOrder(orderId: string, cancelledBy: "customer" | "admin") {
-  const { error } = await supabase.rpc("cancel_order_by_user", {
-    p_order_id: orderId,
-    p_note: `Cancelled by ${cancelledBy}`,
-  });
-  if (error) { console.error("cancelOrder error:", error); throw error; }
+  await advanceOrder(orderId, "cancelled", undefined, `Cancelled by ${cancelledBy}`);
 }
 
 /** Claim an order as a delivery agent — saves agent ID to DB */
@@ -544,15 +557,25 @@ export async function markNotificationsRead(userId: string) {
 
 /** Orders available to claim (not yet assigned, not delivered/cancelled) */
 export async function getAvailableOrders() {
-  const { data, error } = await supabase.rpc("get_available_orders_for_delivery");
-  if (error) { console.error("getAvailableOrders error:", error); throw error; }
-  return (data ?? []) as any[];
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*, order_items(*)")
+    .is("assigned_to", null)
+    .not("status", "in", "(delivered,cancelled)")
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data ?? [];
 }
 
+/** Orders assigned to a specific delivery agent */
 export async function getMyDeliveries(agentId: string) {
-  const { data, error } = await supabase.rpc("get_my_deliveries", { agent_id: agentId });
-  if (error) { console.error("getMyDeliveries error:", error); throw error; }
-  return (data ?? []) as any[];
+  const { data, error } = await supabase
+    .from("orders")
+    .select("*, order_items(*), order_history(*)")
+    .eq("assigned_to", agentId)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
 }
 
 // ─────────────────────────────────────────────────────────────
