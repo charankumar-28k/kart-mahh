@@ -9,7 +9,14 @@ import { PageShell } from "../components/SiteLayout";
 import { CATEGORIES } from "../lib/categories";
 import { useSupabaseStore } from "../lib/supabase-store.tsx";
 import * as api from "../lib/api";
-import { ORDER_LABEL, ORDER_STAGES, type OrderStatus, type Product } from "../lib/store";
+import { ORDER_LABEL, ORDER_STAGES, type OrderStatus } from "../lib/store";
+
+type Product = {
+  id: string; title: string; price: number; old_price?: number;
+  image: string; category: string; subcategory: string; rating: number;
+  description: string; tags: string[]; stock: number; location: string;
+  seller_id: string;
+};
 
 export const Route = createFileRoute("/admin")({ component: AdminPage });
 
@@ -20,7 +27,7 @@ function emptyProduct(sellerId: string): Product {
     id: crypto.randomUUID(), title: "", price: 0,
     image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600",
     category: "fashion", subcategory: "mens", rating: 4.5,
-    description: "", tags: [], stock: 10, location: "Brooklyn, NY", sellerId,
+    description: "", tags: [], stock: 10, location: "Brooklyn, NY", seller_id: sellerId,
   };
 }
 
@@ -467,7 +474,7 @@ function AdminPage() {
         )}
       </div>
 
-      {editing && <ProductDialog product={editing} onClose={() => setEditing(null)} onSave={(p) => { storeUpsert({ ...p, seller_id: p.sellerId ?? user.id, old_price: p.oldPrice }); setEditing(null); }} />}
+      {editing && <ProductDialog product={editing} onClose={() => setEditing(null)} onSave={(p) => { storeUpsert(p); setEditing(null); }} />}
       {showCreateAgent && <CreateAgentDialog onClose={() => setShowCreateAgent(false)} />}
       {resetAgentId && <ResetPasswordDialog agentId={resetAgentId} onClose={() => setResetAgentId(null)} />}
     </PageShell>
@@ -581,7 +588,7 @@ function ResetPasswordDialog({ agentId, onClose }: { agentId: string; onClose: (
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.getProfile(agentId).then((p) => setAgentName(p.name)).catch(() => {});
+    api.getProfile(agentId).then((p: any) => setAgentName(p.name)).catch(() => {});
   }, [agentId]);
 
   const submit = async (e: React.FormEvent) => {
@@ -670,7 +677,7 @@ function ProductDialog({ product, onClose, onSave }: { product: Product; onClose
             </div>
             <div>
               <label className="text-xs font-semibold text-muted-foreground">Original price ($)</label>
-              <input type="number" min="0" value={p.oldPrice ?? ""} onChange={(e) => setP({ ...p, oldPrice: e.target.value ? Number(e.target.value) : undefined })} className={inp} placeholder="Optional" />
+              <input type="number" min="0" value={p.old_price ?? ""} onChange={(e) => setP({ ...p, old_price: e.target.value ? Number(e.target.value) : undefined })} className={inp} placeholder="Optional" />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">

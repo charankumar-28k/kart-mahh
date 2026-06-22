@@ -98,9 +98,9 @@ export function SupabaseStoreProvider({ children }: { children: ReactNode }) {
       const { data: authUser } = await supabase.auth.getUser();
       const email = authUser.user?.email ?? "";
       const name = authUser.user?.user_metadata?.name ?? email.split("@")[0] ?? "User";
-      await supabase
+      await (supabase
         .from("profiles")
-        .upsert({ id: userId, email, name, role: "user" as UserRole }, { onConflict: "id", ignoreDuplicates: true });
+        .upsert({ id: userId, email, name, role: "user" as UserRole }, { onConflict: "id", ignoreDuplicates: true }) as any);
 
       // 2. Load profile
       const profile = await api.getProfile(userId);
@@ -257,10 +257,10 @@ export function SupabaseStoreProvider({ children }: { children: ReactNode }) {
   const upsertProduct = useCallback(async (p: Parameters<typeof api.upsertProduct>[0]) => {
     const saved = await api.upsertProduct(p);
     setProducts((prev) => {
-      const exists = prev.some((x: any) => x.id === saved.id);
+      const exists = prev.some((x) => (x as any).id === saved.id);
       return exists
-        ? prev.map((x: any) => (x.id === saved.id ? { ...x, ...saved } : x))
-        : [saved as Product, ...prev];
+        ? prev.map((x) => ((x as any).id === saved.id ? { ...(x as any), ...(saved as any) } : x))
+        : [saved as unknown as Product, ...prev];
     });
   }, []);
 

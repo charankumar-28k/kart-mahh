@@ -365,12 +365,12 @@ export async function placeOrder(order: {
   if (histErr) throw histErr;
 
   // 4. Insert notification
-  const { error: notifErr } = await supabase.from("notifications").insert({
+  const { error: notifErr } = await (supabase.from("notifications").insert({
     user_id: order.userId,
     message: `Order ${order.id} placed successfully!`,
     type: "order_placed",
     order_id: order.id,
-  });
+  } as any) as any);
   if (notifErr) throw notifErr;
 
   return order.id;
@@ -414,27 +414,27 @@ export async function advanceOrder(
   // Update order status
   const updatePayload: { status: OrderStatus; assigned_to?: string } = { status };
   if (deliveryUserId) updatePayload.assigned_to = deliveryUserId;
-  const { error: orderErr } = await supabase
+  const { error: orderErr } = await (supabase
     .from("orders")
-    .update(updatePayload)
-    .eq("id", orderId);
+    .update(updatePayload as any)
+    .eq("id", orderId) as any);
   if (orderErr) throw orderErr;
 
   // Append history
-  const { error: histErr } = await supabase.from("order_history").insert({
+  const { error: histErr } = await (supabase.from("order_history").insert({
     order_id: orderId,
     status,
     at: new Date().toISOString(),
     by: deliveryUserId ?? null,
     note: note ?? null,
-  });
+  } as any) as any);
   if (histErr) throw histErr;
 
   // Update shipment status
-  const { error: shipErr } = await supabase
+  const { error: shipErr } = await (supabase
     .from("shipments")
-    .update({ shipment_status: status })
-    .eq("order_id", orderId);
+    .update({ shipment_status: status } as any)
+    .eq("order_id", orderId) as any);
   if (shipErr) throw shipErr;
 
   // Notification for milestones
@@ -454,12 +454,12 @@ export async function advanceOrder(
     };
     const { data: order } = await supabase.from("orders").select("user_id").eq("id", orderId).single();
     if (order) {
-      await supabase.from("notifications").insert({
+      await (supabase.from("notifications").insert({
         user_id: order.user_id,
         message: msgMap[notifType],
         type: notifType,
         order_id: orderId,
-      });
+      } as any) as any);
     }
   }
 }
@@ -471,27 +471,27 @@ export async function cancelOrder(orderId: string, cancelledBy: "customer" | "ad
 /** Claim an order as a delivery agent — saves agent ID to DB */
 export async function claimOrder(orderId: string, agentId: string) {
   // 1. Assign agent + set status to packed
-  const { error: orderErr } = await supabase
+  const { error: orderErr } = await (supabase
     .from("orders")
-    .update({ assigned_to: agentId, status: "packed" })
+    .update({ assigned_to: agentId, status: "packed" } as any)
     .eq("id", orderId)
-    .is("assigned_to", null); // only claim if not already taken
+    .is("assigned_to", null) as any);
   if (orderErr) throw orderErr;
 
   // 2. Record in order_history
-  const { error: histErr } = await supabase.from("order_history").insert({
+  const { error: histErr } = await (supabase.from("order_history").insert({
     order_id: orderId,
-    status: "packed",
+    status: "packed" as OrderStatus,
     at: new Date().toISOString(),
     by: agentId,
     note: "Claimed by delivery agent",
-  });
+  } as any) as any);
   if (histErr) throw histErr;
 
   // 3. Update shipment status
-  await supabase.from("shipments")
-    .update({ shipment_status: "packed" })
-    .eq("order_id", orderId);
+  await (supabase.from("shipments")
+    .update({ shipment_status: "packed" } as any)
+    .eq("order_id", orderId) as any);
 }
 
 
@@ -507,14 +507,14 @@ export async function createShipment(shipment: {
   trackingNumber: string;
   estimatedDeliveryDate: number;
 }) {
-  const { error } = await supabase.from("shipments").insert({
+  const { error } = await (supabase.from("shipments").insert({
     id: shipment.id,
     order_id: shipment.orderId,
     courier_partner: shipment.courierPartner,
     tracking_number: shipment.trackingNumber,
     estimated_delivery_date: new Date(shipment.estimatedDeliveryDate).toISOString(),
     shipment_status: "placed",
-  });
+  } as any) as any);
   if (error) throw error;
 }
 
@@ -543,11 +543,11 @@ export async function getNotifications(userId: string) {
 }
 
 export async function markNotificationsRead(userId: string) {
-  const { error } = await supabase
+  const { error } = await (supabase
     .from("notifications")
-    .update({ read: true })
+    .update({ read: true } as any)
     .eq("user_id", userId)
-    .eq("read", false);
+    .eq("read", false) as any);
   if (error) throw error;
 }
 

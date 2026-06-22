@@ -88,7 +88,7 @@ function ProductsPage() {
     if (sort === "price_asc") l = [...l].sort((a, b) => a.price - b.price);
     else if (sort === "price_desc") l = [...l].sort((a, b) => b.price - a.price);
     else if (sort === "rating") l = [...l].sort((a, b) => b.rating - a.rating);
-    else if (tab === "top") l = [...l].sort((a, b) => (b.sold ?? 0) - (a.sold ?? 0));
+    else if (tab === "top") l = [...l].sort((a, b) => ((b as any).sold ?? 0) - ((a as any).sold ?? 0));
     return l;
   }, [products, tab, category, search.q, sort]);
 
