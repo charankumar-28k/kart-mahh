@@ -2,14 +2,14 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { Truck, User as UserIcon, Phone, Lock, Save, Eye, EyeOff, Check, ShieldAlert, ArrowLeft } from "lucide-react";
 import { PageShell } from "../components/SiteLayout";
-import { useStore, currentUser, updateUser, changePassword } from "../lib/store";
+import { useSupabaseStore } from "../lib/supabase-store";
 
 export const Route = createFileRoute("/delivery-profile")({ component: DeliveryProfilePage });
 
 const inp = "mt-1 w-full flex items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2.5 transition-all focus-within:border-primary focus-within:bg-card focus-within:shadow-[var(--shadow-soft)]";
 
 function DeliveryProfilePage() {
-  const user = useStore((s) => currentUser(s));
+  const { user, updateProfile, changePassword } = useSupabaseStore();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -46,25 +46,32 @@ function DeliveryProfilePage() {
     );
   }
 
-  const saveProfile = (e: React.FormEvent) => {
+  const saveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setProfileError("");
     if (!name.trim()) { setProfileError("Name cannot be empty."); return; }
-    updateUser({ name: name.trim(), phone: phone.trim() });
-    setProfileSaved(true);
-    setTimeout(() => setProfileSaved(false), 2000);
+    try {
+      await updateProfile({ name: name.trim(), phone: phone.trim() });
+      setProfileSaved(true);
+      setTimeout(() => setProfileSaved(false), 2000);
+    } catch (err: any) {
+      setProfileError(err?.message ?? "Failed to save profile.");
+    }
   };
 
-  const savePassword = (e: React.FormEvent) => {
+  const savePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setPwMsg(null);
     if (newPw.length < 6) { setPwMsg({ type: "err", text: "New password must be at least 6 characters." }); return; }
     if (newPw !== confirmPw) { setPwMsg({ type: "err", text: "Passwords do not match." }); return; }
-    const ok = changePassword(currentPw, newPw);
-    if (!ok) { setPwMsg({ type: "err", text: "Current password is incorrect." }); return; }
-    setCurrentPw(""); setNewPw(""); setConfirmPw("");
-    setPwMsg({ type: "ok", text: "Password changed successfully!" });
-    setTimeout(() => setPwMsg(null), 3000);
+    try {
+      await changePassword(newPw);
+      setCurrentPw(""); setNewPw(""); setConfirmPw("");
+      setPwMsg({ type: "ok", text: "Password changed successfully!" });
+      setTimeout(() => setPwMsg(null), 3000);
+    } catch (err: any) {
+      setPwMsg({ type: "err", text: err?.message ?? "Failed to change password." });
+    }
   };
 
   return (

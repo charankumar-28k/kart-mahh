@@ -4,7 +4,7 @@ import { MapPin, ChevronLeft, Filter } from "lucide-react";
 import { NotFoundPage } from "../components/ErrorPage";
 import { PageShell } from "../components/SiteLayout";
 import { CATEGORIES, findCategory } from "../lib/categories";
-import { useStore } from "../lib/store";
+import { useSupabaseStore } from "../lib/supabase-store";
 
 export const Route = createFileRoute("/category/$slug")({
   component: CategoryPage,
@@ -13,7 +13,7 @@ export const Route = createFileRoute("/category/$slug")({
 function CategoryPage() {
   const { slug } = useParams({ from: "/category/$slug" });
   const cat = findCategory(slug);
-  const products = useStore((s) => s.products);
+  const { products } = useSupabaseStore();
   const [sub, setSub] = useState<string>("all");
 
   const list = useMemo(() => {

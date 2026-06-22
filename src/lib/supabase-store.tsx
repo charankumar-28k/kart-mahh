@@ -193,9 +193,7 @@ export function SupabaseStoreProvider({ children }: { children: ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => {
         api.getProducts().then((p) => setProducts(p as Product[])).catch(() => {});
       })
-      .subscribe((status) => {
-        console.log("Realtime status:", status);
-      });
+      .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [fetchOrders]);

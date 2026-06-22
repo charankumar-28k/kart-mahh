@@ -73,7 +73,7 @@ function ProductsPage() {
     if (tab === "top" || tab === "trending" || tab === "best" || tab === "near") {
       l = l.filter((p) => p.tags.includes(tab as any));
     } else if (tab === "new") {
-      l = l.sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)).slice(0, 24);
+      l = l.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 24);
     }
     const term = (search.q ?? "").trim().toLowerCase();
     if (term) {
@@ -260,7 +260,7 @@ function ProductsPage() {
                     <div className="mt-2 flex items-end justify-between">
                       <div>
                         <span className="text-base font-extrabold gradient-text">${p.price}</span>
-                        {p.oldPrice && <span className="ml-1 text-[10px] text-muted-foreground line-through">${p.oldPrice}</span>}
+                        {p.old_price && <span className="ml-1 text-[10px] text-muted-foreground line-through">${p.old_price}</span>}
                       </div>
                       <span className="text-[10px] font-semibold text-[var(--accent-orange)]">★ {p.rating}</span>
                     </div>

@@ -38,7 +38,7 @@ function StaffLoginPage() {
     if (user.role === "admin") navigate({ to: "/admin" });
     else if (user.role === "delivery") navigate({ to: "/delivery" });
     else setError("This is the staff portal. Customers please use the Customer Login.");
-  }, [user]);
+  }, [user, navigate]);
 
   const changePortal = (p: StaffPortal) => { setPortal(p); setEmail(""); setPassword(""); setError(""); };
 

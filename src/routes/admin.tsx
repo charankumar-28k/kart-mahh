@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Shield, Plus, Edit3, Trash2, Package, ShieldAlert, X,
   DollarSign, TrendingUp, CheckCircle2, Truck, Users,
@@ -39,10 +39,9 @@ function AdminPage() {
   const [resetAgentId, setResetAgentId] = useState<string | null>(null);
   const [agents, setAgents] = useState<any[]>([]);
 
-  useMemo(() => {
+  useEffect(() => {
     if (user?.role === "admin") {
       api.getDeliveryAgents().then(setAgents).catch(() => {});
-      api.getAllProfiles().then((profiles) => {}).catch(() => {});
     }
   }, [user?.role]);
 
@@ -300,7 +299,7 @@ function AdminPage() {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold capitalize ${statusCls}`}>{ORDER_LABEL[o.status]}</span>
-                      <span className="font-bold text-sm">${o.total.toFixed(2)}</span>
+                      <span className="font-bold text-sm">${Number(o.total).toFixed(2)}</span>
                       {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </div>
@@ -581,7 +580,7 @@ function ResetPasswordDialog({ agentId, onClose }: { agentId: string; onClose: (
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  useMemo(() => {
+  useEffect(() => {
     api.getProfile(agentId).then((p) => setAgentName(p.name)).catch(() => {});
   }, [agentId]);
 

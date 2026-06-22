@@ -32,7 +32,7 @@ function LoginPage() {
 
   useEffect(() => {
     if (!loading && user) navigate({ to: "/", replace: true });
-  }, [user, loading]);
+  }, [user, loading, navigate]);
 
   if (loading) {
     return (

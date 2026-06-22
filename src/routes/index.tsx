@@ -327,9 +327,9 @@ function Index() {
                       <span className="text-lg font-extrabold gradient-text">
                         ${p.price}
                       </span>
-                      {p.oldPrice != null && (
+                      {p.old_price != null && (
                         <span className="ml-1.5 text-xs text-muted-foreground line-through">
-                          ${p.oldPrice}
+                          ${p.old_price}
                         </span>
                       )}
                     </div>
