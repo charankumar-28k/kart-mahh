@@ -7,6 +7,32 @@ export type NotificationType = "order_placed" | "payment_success" | "shipped" | 
 
 export interface Database {
   public: {
+    Functions: {
+      get_all_orders_for_admin: {
+        Args: Record<string, never>;
+        Returns: Json[];
+      };
+      get_available_orders_for_delivery: {
+        Args: Record<string, never>;
+        Returns: Json[];
+      };
+      get_my_deliveries: {
+        Args: { agent_id: string };
+        Returns: Json[];
+      };
+      cancel_order_by_user: {
+        Args: { p_order_id: string; p_note: string };
+        Returns: void;
+      };
+      create_delivery_agent: {
+        Args: { agent_name: string; agent_email: string; agent_password: string; agent_phone: string };
+        Returns: string;
+      };
+      adjust_product_stock: {
+        Args: { product_id: string; delta: number };
+        Returns: void;
+      };
+    };
     Tables: {
       profiles: {
         Row: {

@@ -298,7 +298,7 @@ function AdminPage() {
                       <span className="text-xs text-muted-foreground hidden sm:inline">{(o as any).address_city}</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold capitalize ${statusCls}`}>{ORDER_LABEL[o.status]}</span>
+                      <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold capitalize ${statusCls}`}>{ORDER_LABEL[o.status as OrderStatus]}</span>
                       <span className="font-bold text-sm">${Number(o.total).toFixed(2)}</span>
                       {isOpen ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                     </div>

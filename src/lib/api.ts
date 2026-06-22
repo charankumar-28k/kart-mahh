@@ -4,7 +4,7 @@
  * payments, reviews, wishlist, notifications, delivery, admin.
  */
 import { supabase } from "./supabase";
-import type { OrderStatus } from "./database.types";
+import type { OrderStatus, NotificationType } from "./database.types";
 
 // ─────────────────────────────────────────────────────────────
 // AUTH
@@ -394,7 +394,7 @@ export async function advanceOrder(
   note?: string
 ) {
   // Update order status
-  const updatePayload: Record<string, unknown> = { status };
+  const updatePayload: { status: OrderStatus; assigned_to?: string } = { status };
   if (deliveryUserId) updatePayload.assigned_to = deliveryUserId;
   const { error: orderErr } = await supabase
     .from("orders")
@@ -420,14 +420,16 @@ export async function advanceOrder(
   if (shipErr) throw shipErr;
 
   // Notification for milestones
-  const notifTypes: Partial<Record<OrderStatus, string>> = {
+  const notifTypes: Partial<Record<OrderStatus, NotificationType>> = {
     shipped: "shipped",
     out_for_delivery: "out_for_delivery",
     delivered: "delivered",
   };
   const notifType = notifTypes[status];
   if (notifType) {
-    const msgMap: Record<string, string> = {
+    const msgMap: Record<NotificationType, string> = {
+      order_placed: "",
+      payment_success: "",
       shipped: `Your order ${orderId} has been shipped!`,
       out_for_delivery: `Your order ${orderId} is out for delivery!`,
       delivered: `Your order ${orderId} has been delivered!`,
@@ -436,8 +438,8 @@ export async function advanceOrder(
     if (order) {
       await supabase.from("notifications").insert({
         user_id: order.user_id,
-        message: msgMap[status],
-        type: notifType as never,
+        message: msgMap[notifType],
+        type: notifType,
         order_id: orderId,
       });
     }
@@ -560,8 +562,8 @@ export async function getMyDeliveries(agentId: string) {
 export async function getAdminStats() {
   const [products, orders, users] = await Promise.all([
     supabase.from("products").select("id", { count: "exact", head: true }),
-    supabase.from("orders").select("id, total, status"),
-    supabase.from("profiles").select("id, role", { count: "exact" }),
+    supabase.from("orders").select("id, total, status") as unknown as Promise<{ data: { id: string; total: number; status: OrderStatus }[] | null; error: unknown }>,
+    supabase.from("profiles").select("id, role") as unknown as Promise<{ data: { id: string; role: string }[] | null; error: unknown }>,
   ]);
 
   const totalRevenue = (orders.data ?? [])

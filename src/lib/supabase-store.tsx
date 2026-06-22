@@ -3,7 +3,7 @@ import {
   type ReactNode,
 } from "react";
 import * as api from "./api";
-import type { Database } from "./database.types";
+import type { Database, UserRole } from "./database.types";
 import { supabase } from "./supabase";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -100,7 +100,7 @@ export function SupabaseStoreProvider({ children }: { children: ReactNode }) {
       const name = authUser.user?.user_metadata?.name ?? email.split("@")[0] ?? "User";
       await supabase
         .from("profiles")
-        .upsert({ id: userId, email, name, role: "user" }, { onConflict: "id", ignoreDuplicates: true });
+        .upsert({ id: userId, email, name, role: "user" as UserRole }, { onConflict: "id", ignoreDuplicates: true });
 
       // 2. Load profile
       const profile = await api.getProfile(userId);
